@@ -10,7 +10,7 @@ import com.homestorage.mymediasync.entity.MediaMetadata;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
-import java.util.Arrays;
+import java.util.List;
 
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
@@ -19,20 +19,19 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
-public class UploadTask extends AsyncTask<MediaMetadata, Integer, Long> {
+public class UploadTask extends AsyncTask<Void, Integer, Boolean> {
 
+    private FileSyncResources fileSyncResources;
     private OkHttpClient httpClient;
     private String filesEndpoint;
     private FileSyncDatabase fileSyncDatabase;
     private Gson gson;
     private InetAddress serverAddress;
 
-    public UploadTask(FileSyncDatabase fileSyncDatabase, InetAddress serverAddress) {
+    public UploadTask(FileSyncResources fileSyncResources) {
         super();
-        this.serverAddress = serverAddress;
-        this.fileSyncDatabase = fileSyncDatabase;
-        filesEndpoint = "http://" + serverAddress.getHostAddress() + ":8080/api/v1/files";
-        Log.d("UploadTask", "HomeStorage filesEndpoint: \"" + filesEndpoint + "\"");
+        this.fileSyncResources = fileSyncResources;
+        fileSyncDatabase = fileSyncResources.getFileSyncDatabase();
         gson = new GsonBuilder()
                 .setPrettyPrinting()
                 .setDateFormat("yyyy-MM-dd hh:mm:ss")
@@ -40,10 +39,28 @@ public class UploadTask extends AsyncTask<MediaMetadata, Integer, Long> {
     }
 
     @Override
-    protected Long doInBackground(MediaMetadata... mediaMetadata) {
+    protected Boolean doInBackground(Void... voids) {
+        serverAddress = fileSyncResources.getServerAddress().orElse(null);
+        if (serverAddress == null) {
+            Log.e("UploadTask", "Unable to get server address");
+            return false;
+        }
+        List<MediaMetadata> mediaMetadataList = fileSyncResources.getMediaMetaData();
+        if (mediaMetadataList == null) {
+            Log.e("UploadTask", "Unable to get media metadata");
+            return false;
+        }
+        filesEndpoint = "http://" + serverAddress.getHostAddress() + ":8080/api/v1/files";
+        Log.d("UploadTask", "HomeStorage filesEndpoint: \"" + filesEndpoint + "\"");
         httpClient = new OkHttpClient.Builder().build();
-        Arrays.stream(mediaMetadata).forEach(this::uploadMedia);
-        return null;
+        for (MediaMetadata mediaMetadata : mediaMetadataList) {
+            if (isCancelled()) {
+                Log.w("UploadTask", "Task is cancelled");
+                return false;
+            }
+            uploadMedia(mediaMetadata);
+        }
+        return true;
     }
 
     private void uploadMedia(MediaMetadata mediaMetadata) {
@@ -58,7 +75,7 @@ public class UploadTask extends AsyncTask<MediaMetadata, Integer, Long> {
                                     new File(mediaMetadata.getDataUri())))
                     .build();
             Request request = new Request.Builder()
-                    .header("ClientID", "d9d7d5a1-f396-4ea2-8638-8ccc335e8c73")
+                    .header("ClientID", fileSyncResources.getClientId())
                     .url(filesEndpoint)
                     .post(body)
                     .build();
@@ -74,7 +91,7 @@ public class UploadTask extends AsyncTask<MediaMetadata, Integer, Long> {
                 }
                 Log.d("UploadTask", "Sending metadata to \"" + response.header("location") + "\"");
                 request = new Request.Builder()
-                        .header("ClientID", "d9d7d5a1-f396-4ea2-8638-8ccc335e8c73")
+                        .header("ClientID", fileSyncResources.getClientId())
                         .url(patchEndpoint)
                         .patch(RequestBody.create(MediaType.parse("application/json"), gson.toJson(mediaMetadata)))
                         .build();

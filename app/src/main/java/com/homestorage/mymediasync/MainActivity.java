@@ -6,23 +6,31 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.widget.Button;
 
-import com.homestorage.mymediasync.syncserver.FileSyncHandlerThread;
+import com.homestorage.mymediasync.syncserver.FileSyncResources;
+import com.homestorage.mymediasync.syncserver.UploadTask;
 
 public class MainActivity extends AppCompatActivity {
 
     private final static int PERMISSION_READ_EXTERNAL_STORAGE = 123;
     private final static int PERMISSION_INTERNET = 124;
 
-    private FileSyncHandlerThread fileSyncHandlerThread;
+    private FileSyncResources fileSyncResources;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         checkPermissions();
-        fileSyncHandlerThread = new FileSyncHandlerThread(getApplicationContext());
-        fileSyncHandlerThread.start();
+
+        fileSyncResources = new FileSyncResources(getApplicationContext());
+        final Button syncButton = findViewById(R.id.syncButton);
+        syncButton.setOnClickListener(v -> startFileSync());
+    }
+
+    private void startFileSync() {
+        new UploadTask(fileSyncResources).execute();
     }
 
     private void checkPermissions() {

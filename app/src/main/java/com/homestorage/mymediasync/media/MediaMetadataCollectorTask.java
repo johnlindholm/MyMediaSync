@@ -2,6 +2,7 @@ package com.homestorage.mymediasync.media;
 
 import android.content.Context;
 import android.database.Cursor;
+import android.os.AsyncTask;
 import android.provider.MediaStore;
 import android.util.Log;
 
@@ -12,7 +13,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-public class MediaMetadataCollector {
+public class MediaMetadataCollectorTask extends AsyncTask<Context, Integer, List<MediaMetadata>> {
 
     private final static String[] imageProjection = new String[]{
             MediaStore.Images.Media.BUCKET_DISPLAY_NAME,
@@ -47,19 +48,18 @@ public class MediaMetadataCollector {
             MediaStore.Video.Media.RESOLUTION
     };
 
-    /**
-     * TODO
-     *
-     * @param context
-     * @param listener
-     */
-    public static void collectAllMediaMetadata(Context context, MediaMetadataListener listener) {
-        Log.d("MediaMetadataCollector", "Collecting media...");
+    @Override
+    protected List<MediaMetadata> doInBackground(Context... contexts) {
+        return collectAllMediaMetadata(contexts[0]);
+    }
+
+    private List<MediaMetadata> collectAllMediaMetadata(Context context) {
+        Log.d("MediaMetadataCollectorTask", "Collecting media...");
         List<MediaMetadata> mediaMetadataList = new ArrayList<>();
         Cursor cur = context.getContentResolver().query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, imageProjection,
                 null, null, null);
         if (cur != null && cur.getCount() > 0) {
-            Log.i("MediaMetadataCollector", " query count=" + cur.getCount());
+            Log.i("MediaMetadataCollectorTask", " query count=" + cur.getCount());
             if (cur.moveToFirst()) {
                 do {
                     MediaMetadata mediaMetadata = createPhotoMetadata(cur);
@@ -71,7 +71,7 @@ public class MediaMetadataCollector {
         cur = context.getContentResolver().query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, videoProjection,
                 null, null, null);
         if (cur != null && cur.getCount() > 0) {
-            Log.i("MediaMetadataCollector", " query count=" + cur.getCount());
+            Log.i("MediaMetadataCollectorTask", " query count=" + cur.getCount());
             if (cur.moveToFirst()) {
                 do {
                     MediaMetadata mediaMetadata = createVideoMetadata(cur);
@@ -80,7 +80,7 @@ public class MediaMetadataCollector {
             }
             cur.close();
         }
-        listener.onAllMediaMetadata(mediaMetadataList);
+        return mediaMetadataList;
     }
 
     private static MediaMetadata createPhotoMetadata(Cursor cur) {
@@ -133,4 +133,6 @@ public class MediaMetadataCollector {
 
         return mediaMetadata;
     }
+
+
 }
