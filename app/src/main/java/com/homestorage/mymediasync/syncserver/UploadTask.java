@@ -60,6 +60,7 @@ public class UploadTask extends AsyncTask<Void, Integer, Boolean> {
             }
             uploadMedia(mediaMetadata);
         }
+        Log.d("UploadTask", "Done with uploading media!");
         return true;
     }
 

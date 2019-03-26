@@ -1,7 +1,7 @@
 package com.homestorage.mymediasync.syncserver;
 
 import android.content.Context;
-import android.os.AsyncTask;
+import android.util.Log;
 
 import com.homestorage.mymediasync.discovery.SyncServerConnectionTask;
 import com.homestorage.mymediasync.entity.MediaMetadata;
@@ -15,8 +15,6 @@ import java.util.concurrent.ExecutionException;
 public class FileSyncResources {
 
     private final static String CLIENT_ID = "d9d7d5a1-f396-4ea2-8638-8ccc335e8c73";
-
-    private final Context applicationContext;
     private SyncServerConnectionTask syncServerConnectionTask;
     private MediaMetadataCollectorTask mediaMetadataCollectorTask;
     private Optional<InetAddress> inetAddress;
@@ -24,7 +22,6 @@ public class FileSyncResources {
     private final FileSyncDatabase fileSyncDatabase;
 
     public FileSyncResources(Context applicationContext) {
-        this.applicationContext = applicationContext;
         this.fileSyncDatabase = new FileSyncDatabase(applicationContext);
         syncServerConnectionTask = new SyncServerConnectionTask();
         syncServerConnectionTask.execute();
@@ -38,12 +35,7 @@ public class FileSyncResources {
                 if (inetAddress.isPresent()) {
                     return inetAddress;
                 } else {
-                    //Ongoing attempt?
-                    if (syncServerConnectionTask.getStatus() != AsyncTask.Status.FINISHED) {
-                        inetAddress = syncServerConnectionTask.get();
-                        return inetAddress;
-                    }
-                    //No ongoing attempt, try again
+                    //Try again
                     syncServerConnectionTask = new SyncServerConnectionTask();
                     syncServerConnectionTask.execute();
                     inetAddress = syncServerConnectionTask.get();
@@ -51,39 +43,23 @@ public class FileSyncResources {
                 }
             }
             inetAddress = syncServerConnectionTask.get();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-            inetAddress = Optional.empty();
-        } catch (ExecutionException e) {
-            e.printStackTrace();
-            inetAddress = Optional.empty();
+            return inetAddress;
+        } catch (InterruptedException | ExecutionException e) {
+            Log.e("FileSyncResources", "getServerAddress()", e);
+            return Optional.empty();
         }
-        return inetAddress;
     }
 
     public List<MediaMetadata> getMediaMetaData() {
         try {
-            if (mediaMetadataList != null) {
-                //Task has finished successfully
-                return mediaMetadataList;
-            } else {
+            if (mediaMetadataList == null) {
                 mediaMetadataList = mediaMetadataCollectorTask.get();
             }
-//            if (mediaMetadataCollectorTask.getStatus() == AsyncTask.Status.FINISHED) {
-//                //Task has finished, but not successful. Try again
-//                mediaMetadataCollectorTask = new MediaMetadataCollectorTask();
-//                mediaMetadataCollectorTask.execute(applicationContext);
-//                mediaMetadataList = mediaMetadataCollectorTask.get();
-//                return mediaMetadataList;
-//            }
-//            //Ongoing task, calling blocking get
-//            mediaMetadataList = mediaMetadataCollectorTask.get();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } catch (ExecutionException e) {
-            e.printStackTrace();
+            return mediaMetadataList;
+        } catch (InterruptedException | ExecutionException e) {
+            Log.e("FileSyncResources", "getMediaMetaData()", e);
+            return null;
         }
-        return mediaMetadataList;
     }
 
     public FileSyncDatabase getFileSyncDatabase() {
